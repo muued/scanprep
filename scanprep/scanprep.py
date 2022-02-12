@@ -30,10 +30,16 @@ def page_is_empty(img):
     return ratio < 0.005
 
 
-def page_is_separator(img):
-    detected_barcodes = decode(img)
+def page_is_separator(detected_barcodes):
     for barcode in detected_barcodes:
         if barcode.data == b'SCANPREP_SEP':
+            return True
+    return False
+
+
+def page_has_my_sticker(detected_barcodes):
+    for barcode in detected_barcodes:
+        if 'CODE128' == barcode.type and barcode.data.startswith(b'O') and barcode.data[1:].isdigit():
             return True
     return False
 
@@ -46,9 +52,15 @@ def get_new_docs_pages(doc, separate=True, remove_blank=True):
         img = Image.frombytes(
             "RGB", (pixmap.width, pixmap.height), pixmap.samples)
 
-        if separate and page_is_separator(img):
-            docs.append([])
-            continue
+        if separate:
+            detected_barcodes = decode(img)
+            if page_is_separator(detected_barcodes):
+                docs.append([])
+                continue
+            # in case the page has a sticker, start a new document without throwing away the page
+            if page_has_my_sticker(detected_barcodes):
+                docs.append([page.number])
+                continue
         if remove_blank and page_is_empty(img):
             continue
 
